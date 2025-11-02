@@ -23,7 +23,7 @@ anyhow = { version = "1", default-features = false, features = ["std"] }
 ed25519-dalek = { version = "3.0.0-pre.1", default-features = false, features = ["rand_core"] }
 ed25519-dalek-hpke = { version = "0.0.5" }
 
-tokio = { version = "1", default-features = false, features = ["macros", "time", "sync", "rt-multi-thread"] }
+tokio = { version = "1", default-features = false, features = ["macros", "sync", "rt"] }
 
 iroh = { version = "0.94", optional = true, default-features = false }
 iroh-gossip = { version = "0.94", optional = true, default-features = false, features = ["net"]}
@@ -40,6 +40,8 @@ serde = { version = "1", default-features = false, features = ["std"] }
 
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["std", "env-filter", "ansi"] }
+n0-future = "0.3.0"
+time = { version = "0.3.44", features = ["wasm-bindgen"] }
 
 [lib]
 crate-type = ["cdylib", "rlib"]

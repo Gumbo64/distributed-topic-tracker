@@ -67,7 +67,7 @@ async fn main() -> Result<()> {
     println!("Joined topic");
 
     // Spawn listener for incoming messages
-    tokio::spawn(async move {
+    n0_future::task::spawn(async move {
         while let Some(Ok(event)) = gossip_receiver.next().await {
             if let Event::Received(msg) = event {
                 println!(

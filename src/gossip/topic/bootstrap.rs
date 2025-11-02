@@ -5,7 +5,7 @@ use std::{collections::HashSet, time::Duration};
 use actor_helper::{Action, Actor, Handle, Receiver, act, act_ok};
 use anyhow::Result;
 use iroh::EndpointId;
-use tokio::time::sleep;
+use n0_future::time::sleep;
 
 use crate::{
     GossipSender,
@@ -52,7 +52,7 @@ impl Bootstrap {
 
         let (api, rx) = Handle::channel();
 
-        tokio::spawn(async move {
+        n0_future::task::spawn(async move {
             let mut actor = BootstrapActor {
                 rx,
                 record_publisher,
@@ -87,6 +87,7 @@ impl Bootstrap {
     }
 }
 
+use crate::ctrl_c;
 impl Actor<anyhow::Error> for BootstrapActor {
     async fn run(&mut self) -> Result<()> {
         loop {
@@ -94,7 +95,11 @@ impl Actor<anyhow::Error> for BootstrapActor {
                 Ok(action) = self.rx.recv_async() => {
                     action(self).await;
                 }
-                _ = tokio::signal::ctrl_c() => {
+                // _ = ctrl_c() => {
+                //     break;
+                // }
+                else => {
+                    tracing::debug!("\n\n================================================================== tokio select failed\n\n");
                     break;
                 }
             }
@@ -106,7 +111,7 @@ impl Actor<anyhow::Error> for BootstrapActor {
 impl BootstrapActor {
     pub async fn start_bootstrap(&mut self) -> Result<tokio::sync::oneshot::Receiver<()>> {
         let (sender, receiver) = tokio::sync::oneshot::channel();
-        tokio::spawn({
+        n0_future::task::spawn({
             let mut last_published_unix_minute = 0;
             let (gossip_sender, gossip_receiver) =
                 (self.gossip_sender.clone(), self.gossip_receiver.clone());
@@ -131,11 +136,14 @@ impl BootstrapActor {
                     let mut records = record_publisher.get_records(unix_minute - 1).await;
                     records.extend(record_publisher.get_records(unix_minute).await);
 
-                    tracing::debug!(
-                        "Bootstrap: fetched {} records for unix_minute {}",
-                        records.len(),
-                        unix_minute
-                    );
+                    if (records.len() > 0) {
+                        tracing::debug!(
+                            "Bootstrap: fetched {} records for unix_minute {}",
+                            records.len(),
+                            unix_minute
+                        );
+                    }
+
 
                     // If there are no records, invoke the publish_proc (the publishing procedure)
                     // continue the loop after
@@ -158,7 +166,7 @@ impl BootstrapActor {
                                 record_content,
                                 &record_publisher.signing_key(),
                             ) {
-                                tokio::spawn(async move {
+                                n0_future::task::spawn(async move {
                                     let _ = record_creator.publish_record(record).await;
                                 });
                             }
@@ -258,7 +266,7 @@ impl BootstrapActor {
                                 },
                                 &record_publisher.signing_key(),
                             ) {
-                                tokio::spawn(async move {
+                                n0_future::task::spawn(async move {
                                     let _ = record_creator.publish_record(record).await;
                                 });
                             }

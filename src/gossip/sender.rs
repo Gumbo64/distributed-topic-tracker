@@ -29,7 +29,7 @@ impl GossipSender {
         gossip: iroh_gossip::net::Gossip,
     ) -> Self {
         let (api, rx) = Handle::channel();
-        tokio::spawn({
+        n0_future::task::spawn({
             let gossip = gossip.clone();
             async move {
                 let mut actor = GossipSenderActor {
@@ -97,6 +97,7 @@ impl GossipSender {
     }
 }
 
+use crate::ctrl_c;
 impl Actor<anyhow::Error> for GossipSenderActor {
     async fn run(&mut self) -> Result<()> {
         loop {
@@ -104,7 +105,11 @@ impl Actor<anyhow::Error> for GossipSenderActor {
                 Ok(action) = self.rx.recv_async() => {
                     action(self).await;
                 }
-                _ = tokio::signal::ctrl_c() => {
+                // _ = ctrl_c() => {
+                //     break;
+                // }
+                else => {
+                    tracing::debug!("\n\n================================================================== tokio select failed\n\n");
                     break;
                 }
             }

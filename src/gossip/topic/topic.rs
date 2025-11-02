@@ -103,7 +103,7 @@ impl Topic {
         let bootstrap = Bootstrap::new(record_publisher.clone(), gossip.clone()).await?;
         tracing::debug!("Topic: bootstrap instance created");
 
-        tokio::spawn({
+        n0_future::task::spawn({
             let bootstrap = bootstrap.clone();
             async move {
                 tracing::debug!("Topic: starting topic actor");
@@ -170,6 +170,7 @@ impl Topic {
     }
 }
 
+use crate::ctrl_c;
 impl Actor<anyhow::Error> for TopicActor {
     async fn run(&mut self) -> Result<()> {
         loop {
@@ -177,7 +178,11 @@ impl Actor<anyhow::Error> for TopicActor {
                 Ok(action) = self.rx.recv_async() => {
                     let _ = action(self).await;
                 }
-                _ = tokio::signal::ctrl_c() => {
+                // _ = ctrl_c() => {
+                //     break;
+                // }
+                else => {
+                    tracing::debug!("\n\n================================================================== tokio select failed\n\n");
                     break;
                 }
             }

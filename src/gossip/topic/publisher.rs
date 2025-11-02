@@ -22,7 +22,7 @@ struct PublisherActor {
 
     record_publisher: RecordPublisher,
     gossip_receiver: GossipReceiver,
-    ticker: tokio::time::Interval,
+    ticker: n0_future::time::Interval,
 }
 
 impl Publisher {
@@ -32,9 +32,9 @@ impl Publisher {
     pub fn new(record_publisher: RecordPublisher, gossip_receiver: GossipReceiver) -> Result<Self> {
         let (api, rx) = Handle::channel();
 
-        tokio::spawn(async move {
-            let mut ticker = tokio::time::interval(Duration::from_secs(10));
-            ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        n0_future::task::spawn(async move {
+            let mut ticker = n0_future::time::interval(Duration::from_secs(10));
+            ticker.set_missed_tick_behavior(n0_future::time::MissedTickBehavior::Skip);
             let mut actor = PublisherActor {
                 rx,
                 record_publisher,
@@ -48,6 +48,7 @@ impl Publisher {
     }
 }
 
+use crate::ctrl_c;
 impl Actor<anyhow::Error> for PublisherActor {
     async fn run(&mut self) -> Result<()> {
         tracing::debug!("Publisher: starting publisher actor");
@@ -63,7 +64,11 @@ impl Actor<anyhow::Error> for PublisherActor {
                     tracing::debug!("Publisher: next publish in {}s", next_interval);
                     self.ticker.reset_after(Duration::from_secs(next_interval));
                 }
-                _ = tokio::signal::ctrl_c() => break,
+                // _ = ctrl_c() => break,
+                else => {
+                    tracing::debug!("\n\n================================================================== tokio select failed\n\n");
+                    break;
+                }
             }
         }
         Ok(())

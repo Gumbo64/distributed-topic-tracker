@@ -22,7 +22,7 @@ struct MessageOverlapMergeActor {
     record_publisher: RecordPublisher,
     gossip_receiver: GossipReceiver,
     gossip_sender: GossipSender,
-    ticker: tokio::time::Interval,
+    ticker: n0_future::time::Interval,
 }
 
 impl MessageOverlapMerge {
@@ -34,10 +34,10 @@ impl MessageOverlapMerge {
     ) -> Result<Self> {
         let (api, rx) = Handle::channel();
 
-        let mut ticker = tokio::time::interval(Duration::from_secs(10));
-        ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        let mut ticker = n0_future::time::interval(Duration::from_secs(10));
+        ticker.set_missed_tick_behavior(n0_future::time::MissedTickBehavior::Skip);
 
-        tokio::spawn(async move {
+        n0_future::task::spawn(async move {
             let mut actor = MessageOverlapMergeActor {
                 rx,
                 record_publisher,
@@ -52,6 +52,7 @@ impl MessageOverlapMerge {
     }
 }
 
+use crate::ctrl_c;
 impl Actor<anyhow::Error> for MessageOverlapMergeActor {
     async fn run(&mut self) -> Result<()> {
         tracing::debug!("MessageOverlapMerge: starting message overlap merge actor");
@@ -67,7 +68,11 @@ impl Actor<anyhow::Error> for MessageOverlapMergeActor {
                     tracing::debug!("MessageOverlapMerge: next check in {}s", next_interval);
                     self.ticker.reset_after(Duration::from_secs(next_interval));
                 }
-                _ = tokio::signal::ctrl_c() => break,
+                // _ = ctrl_c() => break,
+                else => {
+                    tracing::debug!("\n\n================================================================== tokio select failed\n\n");
+                    break;
+                }
             }
         }
         Ok(())

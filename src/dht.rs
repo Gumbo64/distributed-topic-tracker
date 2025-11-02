@@ -3,12 +3,12 @@
 //! Provides async interface for DHT get/put operations with automatic
 //! retry logic and connection management.
 
-use std::time::Duration;
+use n0_future::{StreamExt, time::Duration};
+
 
 use actor_helper::{Action, Actor, Handle, Receiver, act};
 use anyhow::{Context, Result, bail};
 use ed25519_dalek::VerifyingKey;
-use futures_lite::StreamExt;
 use mainline::{MutableItem, SigningKey};
 
 const RETRY_DEFAULT: usize = 3;
@@ -35,7 +35,7 @@ impl Dht {
     pub fn new() -> Self {
         let (api, rx) = Handle::channel();
 
-        tokio::spawn(async move {
+        n0_future::task::spawn(async move {
             let mut actor = DhtActor { rx, dht: None };
             let _ = actor.run().await;
         });
@@ -92,6 +92,7 @@ impl Default for Dht {
     }
 }
 
+use crate::ctrl_c;
 impl Actor<anyhow::Error> for DhtActor {
     async fn run(&mut self) -> Result<()> {
         loop {
@@ -99,7 +100,11 @@ impl Actor<anyhow::Error> for DhtActor {
                 Ok(action) = self.rx.recv_async() => {
                     action(self).await;
                 }
-                _ = tokio::signal::ctrl_c() => {
+                // _ = ctrl_c() => {
+                //     break;
+                // }
+                else => {
+                    tracing::debug!("\n\n================================================================== tokio select failed\n\n");
                     break;
                 }
             }
@@ -121,7 +126,8 @@ impl DhtActor {
         }
 
         let dht = self.dht.as_mut().context("DHT not initialized")?;
-        Ok(tokio::time::timeout(
+        
+        Ok(n0_future::time::timeout(
             timeout,
             dht.get_mutable(pub_key.as_bytes(), salt.as_deref(), more_recent_than)
                 .collect::<Vec<_>>(),
@@ -145,7 +151,7 @@ impl DhtActor {
         for i in 0..retry_count.unwrap_or(RETRY_DEFAULT) {
             let dht = self.dht.as_mut().context("DHT not initialized")?;
 
-            let most_recent_result = tokio::time::timeout(
+            let most_recent_result = n0_future::time::timeout(
                 timeout,
                 dht.get_mutable_most_recent(pub_key.as_bytes(), salt.as_deref()),
             )
@@ -162,7 +168,7 @@ impl DhtActor {
                 MutableItem::new(signing_key.clone(), &data, 0, salt.as_deref())
             };
 
-            let put_result = match tokio::time::timeout(
+            let put_result = match n0_future::time::timeout(
                 Duration::from_secs(10),
                 dht.put_mutable(item.clone(), Some(item.seq())),
             )
@@ -180,7 +186,7 @@ impl DhtActor {
 
             self.reset().await?;
 
-            tokio::time::sleep(Duration::from_millis(rand::random::<u64>() % 2000)).await;
+            // n0_future::time::sleep(Duration::from_millis(rand::random::<u64>() % 2000)).await;
         }
         Ok(())
     }

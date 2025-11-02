@@ -25,7 +25,7 @@ struct BubbleMergeActor {
     record_publisher: RecordPublisher,
     gossip_receiver: GossipReceiver,
     gossip_sender: GossipSender,
-    ticker: tokio::time::Interval,
+    ticker: n0_future::time::Interval,
 }
 
 impl BubbleMerge {
@@ -39,10 +39,10 @@ impl BubbleMerge {
     ) -> Result<Self> {
         let (api, rx) = Handle::channel();
 
-        let mut ticker = tokio::time::interval(Duration::from_secs(10));
-        ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        let mut ticker = n0_future::time::interval(Duration::from_secs(10));
+        ticker.set_missed_tick_behavior(n0_future::time::MissedTickBehavior::Skip);
 
-        tokio::spawn(async move {
+        n0_future::task::spawn(async move {
             let mut actor = BubbleMergeActor {
                 rx,
                 record_publisher,
@@ -57,6 +57,7 @@ impl BubbleMerge {
     }
 }
 
+use crate::ctrl_c;
 impl Actor<anyhow::Error> for BubbleMergeActor {
     async fn run(&mut self) -> Result<()> {
         tracing::debug!("BubbleMerge: starting bubble merge actor");
@@ -72,7 +73,11 @@ impl Actor<anyhow::Error> for BubbleMergeActor {
                     tracing::debug!("BubbleMerge: next check in {}s", next_interval);
                     self.ticker.reset_after(Duration::from_secs(next_interval));
                 }
-                _ = tokio::signal::ctrl_c() => break,
+                // _ = ctrl_c() => break,
+                else => {
+                    tracing::debug!("\n\n================================================================== tokio select failed\n\n");
+                    break;
+                }
             }
         }
         Ok(())

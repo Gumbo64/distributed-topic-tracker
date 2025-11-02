@@ -246,10 +246,10 @@ impl RecordPublisher {
     ///
     /// Filters out records from this publisher's own node ID.
     pub async fn get_records(&self, unix_minute: u64) -> HashSet<Record> {
-        tracing::debug!(
-            "RecordPublisher: fetching records from DHT for unix_minute {}",
-            unix_minute
-        );
+        // tracing::debug!(
+        //     "RecordPublisher: fetching records from DHT for unix_minute {}",
+        //     unix_minute
+        // );
 
         let topic_sign = crate::crypto::keys::signing_keypair(self.record_topic, unix_minute);
         let encryption_key = crate::crypto::keys::encryption_keypair(
@@ -272,10 +272,10 @@ impl RecordPublisher {
             .await
             .unwrap_or_default();
 
-        tracing::debug!(
-            "RecordPublisher: received {} raw records from DHT",
-            records_iter.len()
-        );
+        // tracing::debug!(
+        //     "RecordPublisher: received {} raw records from DHT",
+        //     records_iter.len()
+        // );
 
         let verified_records = records_iter
             .iter()
@@ -285,7 +285,7 @@ impl RecordPublisher {
                         Ok(record) => match record.verify(&self.record_topic.hash(), unix_minute) {
                             Ok(_) => match record.node_id().eq(self.pub_key.as_bytes()) {
                                 true => {
-                                    tracing::debug!("RecordPublisher: filtered out self");
+                                    // tracing::debug!("RecordPublisher: filtered out self");
                                     None
                                 }
                                 false => Some(record),
@@ -299,10 +299,13 @@ impl RecordPublisher {
             )
             .collect::<HashSet<_>>();
 
-        tracing::debug!(
-            "RecordPublisher: verified {} records (filtered self)",
-            verified_records.len()
-        );
+
+        if (records_iter.len() > 0) {
+            tracing::debug!(
+                "RecordPublisher: verified {} records (filtered self)",
+                verified_records.len()
+            );
+        }
         verified_records
     }
 }
